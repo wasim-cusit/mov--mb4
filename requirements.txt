@@ -1,0 +1,6 @@
+# MOV → MP4 Converter — Python dependencies
+# The GUI uses built-in tkinter (included with standard Python on Windows).
+# Run install.bat once to verify Python and install FFmpeg automatically.
+
+# Optional: uncomment if you add features later
+# requests>=2.31.0

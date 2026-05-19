@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+user_settings.json
+install_config.json
+tools/ffmpeg_download.zip
+tools/ffmpeg_extract/
+output/
+*.log
+.venv/
+venv/

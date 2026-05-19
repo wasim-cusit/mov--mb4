@@ -1,0 +1,26 @@
+MOV to MP4 Converter for pCloud Streaming
+=========================================
+
+Developer: MUHAMMAD WASIM
+Phone:     +923257627554
+
+FIRST TIME ON THIS PC
+---------------------
+1. Install Python 3.9+ from https://www.python.org/downloads/
+   (Check "Add Python to PATH" during install)
+
+2. Double-click:  install.bat
+   - Installs folders, packages, and FFmpeg (~90 MB download, once)
+
+3. Double-click:  run.bat
+   - Opens the converter app
+
+DAILY USE
+---------
+Double-click run.bat
+
+FOLDER OUTPUT (courses)
+-----------------------
+  anatomy/lesson_01/video.mov  -->  anatomy/Topic_01.mp4
+
+Need help? Contact MUHAMMAD WASIM  +923257627554

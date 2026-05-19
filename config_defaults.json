@@ -1,0 +1,20 @@
+{
+  "resolution": "1280x720",
+  "fps_mode": "keep",
+  "fps_value": 30,
+  "crf": 23,
+  "preset": "medium",
+  "profile": "high",
+  "level": "4.1",
+  "video_bitrate_kbps": 0,
+  "audio_bitrate_kbps": 128,
+  "audio_channels": 2,
+  "audio_sample_rate": 48000,
+  "max_output_gb": 10,
+  "faststart": true,
+  "sanitize_names": true,
+  "use_hardware": false,
+  "parallel_jobs": 1,
+  "course_folder_layout": true,
+  "topic_prefix": "Topic"
+}
