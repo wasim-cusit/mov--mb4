@@ -13,8 +13,8 @@ import os
 import shutil
 import subprocess
 import sys
-import time
 import zipfile
+from typing import Callable, Optional
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.request import urlretrieve
@@ -178,7 +178,11 @@ def find_ffmpeg() -> Path | None:
     return Path(w) if w else None
 
 
-def download_ffmpeg(*, show_progress: bool = True) -> tuple[bool, str]:
+def download_ffmpeg(
+    *,
+    show_progress: bool = True,
+    on_progress: Optional[Callable[[str], None]] = None,
+) -> tuple[bool, str]:
     if sys.platform != "win32":
         return False, "Auto-download is for Windows. Install ffmpeg manually."
 
@@ -188,19 +192,28 @@ def download_ffmpeg(*, show_progress: bool = True) -> tuple[bool, str]:
 
     ensure_directories()
 
+    if on_progress:
+        on_progress("Downloading FFmpeg (~90 MB)…")
+
     last_pct = -1.0
 
     def reporthook(block_num: int, block_size: int, total_size: int) -> None:
         nonlocal last_pct
-        if not show_progress:
-            return
         downloaded = block_num * block_size
         if total_size > 0:
             pct = downloaded * 100.0 / total_size
             if pct - last_pct >= 0.3 or pct >= 99.9:
                 last_pct = pct
-                print_download_progress(downloaded, total_size, "Downloading FFmpeg")
-        else:
+                if on_progress:
+                    on_progress(
+                        f"Downloading FFmpeg: {pct:.0f}% "
+                        f"({format_bytes(downloaded)} / {format_bytes(total_size)})"
+                    )
+                elif show_progress:
+                    print_download_progress(downloaded, total_size, "Downloading FFmpeg")
+        elif on_progress:
+            on_progress(f"Downloading FFmpeg: {format_bytes(downloaded)}…")
+        elif show_progress:
             print_download_progress(downloaded, 0, "Downloading FFmpeg")
 
     try:
@@ -209,11 +222,13 @@ def download_ffmpeg(*, show_progress: bool = True) -> tuple[bool, str]:
         progress_done()
         return False, f"Download failed: {e}"
 
-    if show_progress:
+    if on_progress:
+        on_progress("Download complete. Extracting FFmpeg…")
+    elif show_progress:
         print_download_progress(1, 1, "Downloading FFmpeg")
         progress_done()
-        print(f"       ✔ Download complete", flush=True)
-        print(f"       ◌ Extracting FFmpeg…", flush=True)
+        print("       ✔ Download complete", flush=True)
+        print("       ◌ Extracting FFmpeg…", flush=True)
 
     extract_tmp = TOOLS_DIR / "ffmpeg_extract"
     if extract_tmp.exists():
@@ -226,9 +241,12 @@ def download_ffmpeg(*, show_progress: bool = True) -> tuple[bool, str]:
             total = len(members) or 1
             for i, member in enumerate(members):
                 zf.extract(member, extract_tmp)
-                if show_progress and i % max(1, total // 20) == 0:
+                if i % max(1, total // 20) == 0:
                     pct = (i + 1) * 100.0 / total
-                    print_extract_progress(min(99, pct))
+                    if on_progress:
+                        on_progress(f"Extracting FFmpeg: {pct:.0f}%")
+                    elif show_progress:
+                        print_extract_progress(min(99, pct))
     except Exception as e:
         progress_done()
         return False, f"Extract failed: {e}"
@@ -291,32 +309,49 @@ def is_setup_complete() -> bool:
     return ok_py and ok_tk and ok_ff
 
 
-def run_full_setup(*, quiet: bool = False, show_banner: bool = True) -> bool:
-    if show_banner and not quiet:
+def run_full_setup(
+    *,
+    quiet: bool = False,
+    show_banner: bool = True,
+    progress: Optional[Callable[[str], None]] = None,
+) -> bool:
+    use_console = not quiet and progress is None
+
+    if show_banner and use_console:
         from console_theme import print_banner
 
         print_banner("install")
         print_planned_steps()
 
+    def report(msg: str) -> None:
+        if progress:
+            progress(msg)
+
     def begin(num: int, label: str) -> None:
-        if not quiet:
+        report(f"[{num}/{TOTAL_STEPS}] {label}")
+        if use_console:
             print_step(num, TOTAL_STEPS, label, "run")
 
     def finish(num: int, label: str, ok: bool = True) -> None:
-        if not quiet:
+        report(f"[{num}/{TOTAL_STEPS}] ✔ {label}")
+        if use_console:
             print_step(num, TOTAL_STEPS, label, "ok" if ok else "fail")
 
     # [1/4] Python + GUI
     begin(1, "Checking Python and GUI…")
     ok, ver = check_python_version()
     if not ok:
-        if not quiet:
+        if use_console:
             print_error(ver)
+        elif progress:
+            progress(f"Error: {ver}")
         return False
     ok, tk_msg = check_tkinter()
     if not ok:
-        if not quiet:
+        if use_console:
             print_error(tk_msg)
+        elif progress:
+            progress(f"Error: {tk_msg}")
         return False
     finish(1, f"Python {ver} — {tk_msg}")
 
@@ -327,42 +362,56 @@ def run_full_setup(*, quiet: bool = False, show_banner: bool = True) -> bool:
 
     # [3/4] pip
     begin(3, "Installing Python packages…")
-    if not quiet:
+    if use_console:
         print_progress_bar(15, "pip", "Connecting…", inline=True)
-    ok, msg = run_pip_install(quiet=quiet)
-    if not quiet:
+    elif progress:
+        progress("Installing Python packages…")
+    ok, msg = run_pip_install(quiet=quiet or progress is not None)
+    if use_console:
         print_progress_bar(100 if ok else 0, "pip", msg[:28], inline=True)
         progress_done()
     if not ok:
-        if not quiet:
+        if use_console:
             print_error(msg)
+        elif progress:
+            progress(f"Error: {msg}")
         return False
     finish(3, msg)
 
     # [4/4] FFmpeg
     begin(4, "Downloading and installing FFmpeg…")
     if not ffmpeg_already_installed():
-        ok, msg = download_ffmpeg(show_progress=not quiet)
+        ok, msg = download_ffmpeg(
+            show_progress=use_console,
+            on_progress=progress,
+        )
         if not ok:
-            if not quiet:
+            if use_console:
                 print_error(msg)
+            elif progress:
+                progress(f"Error: {msg}")
             return False
         finish(4, msg)
     else:
-        if not quiet:
+        if use_console:
             progress_done()
         finish(4, "FFmpeg already installed")
 
     ok, msg = verify_ffmpeg()
     if not ok:
-        if not quiet:
+        if use_console:
             print_error(msg)
+        elif progress:
+            progress(f"Error: {msg}")
         return False
-    if not quiet:
+    report(f"Verified: {msg[:52]}")
+    if use_console:
         print(f"       ✔ Verified: {msg[:52]}", flush=True)
 
-    if not quiet:
+    if use_console:
         print_success("install")
+    elif progress:
+        progress("Setup complete — all components ready.")
     return True
 
 

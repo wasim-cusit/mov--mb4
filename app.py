@@ -75,10 +75,10 @@ class ConverterApp(tk.Tk):
     def _check_ffmpeg(self) -> None:
         ff = self.engine.ffmpeg_path
         if ff:
-            self.ffmpeg_status.set(f"FFmpeg: {ff}")
+            self.ffmpeg_status_var.set(f"FFmpeg: {ff}")
             self.ffmpeg_status.configure(foreground="#2e7d32")
         else:
-            self.ffmpeg_status.set("FFmpeg not found — click Browse to select ffmpeg.exe")
+            self.ffmpeg_status_var.set("FFmpeg not found — click Browse to select ffmpeg.exe")
             self.ffmpeg_status.configure(foreground="#c62828")
 
     def _build_ui(self) -> None:
@@ -99,7 +99,13 @@ class ConverterApp(tk.Tk):
         # FFmpeg row
         ff_row = ttk.Frame(self, padding=(12, 0))
         ff_row.pack(fill=tk.X)
-        self.ffmpeg_status = ttk.Label(ff_row, text="")
+        self.ffmpeg_status_var = tk.StringVar(value="Checking FFmpeg…")
+        self.ffmpeg_status = tk.Label(
+            ff_row,
+            textvariable=self.ffmpeg_status_var,
+            anchor=tk.W,
+            font=("Segoe UI", 9),
+        )
         self.ffmpeg_status.pack(side=tk.LEFT, fill=tk.X, expand=True)
         ttk.Button(ff_row, text="Install / Repair", command=self._run_installer).pack(side=tk.RIGHT, padx=2)
         ttk.Button(ff_row, text="Browse FFmpeg…", command=self._browse_ffmpeg).pack(side=tk.RIGHT, padx=2)
